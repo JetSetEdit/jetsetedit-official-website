@@ -1,0 +1,1 @@
+CREATE TYPE client_type AS ENUM ('individual', 'business', 'agency'); CREATE TABLE clients (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, company VARCHAR(255), email VARCHAR(255) NOT NULL, phone VARCHAR(50), type client_type NOT NULL DEFAULT 'individual', status status NOT NULL DEFAULT 'active', notes TEXT, last_project DATE, created_at TIMESTAMP NOT NULL DEFAULT NOW());
