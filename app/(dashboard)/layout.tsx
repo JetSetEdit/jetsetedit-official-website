@@ -2,22 +2,13 @@ import Link from 'next/link';
 import {
   Home,
   LineChart,
-  Package,
   Package2,
   PanelLeft,
   Settings,
-  ShoppingCart,
   Users2
 } from 'lucide-react';
+import React from 'react';
 
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator
-} from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import {
@@ -31,6 +22,7 @@ import { VercelLogo } from '@/components/icons';
 import Providers from './providers';
 import { NavItem } from './nav-item';
 import { SearchInput } from './search';
+import { DashboardBreadcrumb } from './breadcrumb';
 
 export default function DashboardLayout({
   children
@@ -63,30 +55,22 @@ function DesktopNav() {
     <aside className="fixed inset-y-0 left-0 z-10 hidden w-14 flex-col border-r bg-background sm:flex">
       <nav className="flex flex-col items-center gap-4 px-2 sm:py-5">
         <Link
-          href="https://vercel.com/templates/next.js/admin-dashboard-tailwind-postgres-react-nextjs"
+          href="/"
           className="group flex h-9 w-9 shrink-0 items-center justify-center gap-2 rounded-full bg-primary text-lg font-semibold text-primary-foreground md:h-8 md:w-8 md:text-base"
         >
           <VercelLogo className="h-3 w-3 transition-all group-hover:scale-110" />
-          <span className="sr-only">Acme Inc</span>
+          <span className="sr-only">JetSetEdit</span>
         </Link>
 
-        <NavItem href="#" label="Dashboard">
+        <NavItem href="/" label="Dashboard">
           <Home className="h-5 w-5" />
-        </NavItem>
-
-        <NavItem href="#" label="Orders">
-          <ShoppingCart className="h-5 w-5" />
-        </NavItem>
-
-        <NavItem href="/" label="Products">
-          <Package className="h-5 w-5" />
         </NavItem>
 
         <NavItem href="/clients" label="Clients">
           <Users2 className="h-5 w-5" />
         </NavItem>
 
-        <NavItem href="#" label="Analytics">
+        <NavItem href="/invoices" label="Invoices">
           <LineChart className="h-5 w-5" />
         </NavItem>
       </nav>
@@ -94,7 +78,7 @@ function DesktopNav() {
         <Tooltip>
           <TooltipTrigger asChild>
             <Link
-              href="#"
+              href="/settings"
               className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-foreground md:h-8 md:w-8"
             >
               <Settings className="h-5 w-5" />
@@ -120,32 +104,18 @@ function MobileNav() {
       <SheetContent side="left" className="sm:max-w-xs">
         <nav className="grid gap-6 text-lg font-medium">
           <Link
-            href="#"
+            href="/"
             className="group flex h-10 w-10 shrink-0 items-center justify-center gap-2 rounded-full bg-primary text-lg font-semibold text-primary-foreground md:text-base"
           >
             <Package2 className="h-5 w-5 transition-all group-hover:scale-110" />
-            <span className="sr-only">Vercel</span>
+            <span className="sr-only">JetSetEdit</span>
           </Link>
           <Link
-            href="#"
+            href="/"
             className="flex items-center gap-4 px-2.5 text-muted-foreground hover:text-foreground"
           >
             <Home className="h-5 w-5" />
             Dashboard
-          </Link>
-          <Link
-            href="#"
-            className="flex items-center gap-4 px-2.5 text-muted-foreground hover:text-foreground"
-          >
-            <ShoppingCart className="h-5 w-5" />
-            Orders
-          </Link>
-          <Link
-            href="#"
-            className="flex items-center gap-4 px-2.5 text-foreground"
-          >
-            <Package className="h-5 w-5" />
-            Products
           </Link>
           <Link
             href="/clients"
@@ -155,38 +125,21 @@ function MobileNav() {
             Clients
           </Link>
           <Link
-            href="#"
+            href="/invoices"
             className="flex items-center gap-4 px-2.5 text-muted-foreground hover:text-foreground"
           >
             <LineChart className="h-5 w-5" />
+            Invoices
+          </Link>
+          <Link
+            href="/settings"
+            className="flex items-center gap-4 px-2.5 text-muted-foreground hover:text-foreground"
+          >
+            <Settings className="h-5 w-5" />
             Settings
           </Link>
         </nav>
       </SheetContent>
     </Sheet>
-  );
-}
-
-function DashboardBreadcrumb() {
-  return (
-    <Breadcrumb className="hidden md:flex">
-      <BreadcrumbList>
-        <BreadcrumbItem>
-          <BreadcrumbLink asChild>
-            <Link href="#">Dashboard</Link>
-          </BreadcrumbLink>
-        </BreadcrumbItem>
-        <BreadcrumbSeparator />
-        <BreadcrumbItem>
-          <BreadcrumbLink asChild>
-            <Link href="#">Products</Link>
-          </BreadcrumbLink>
-        </BreadcrumbItem>
-        <BreadcrumbSeparator />
-        <BreadcrumbItem>
-          <BreadcrumbPage>All Products</BreadcrumbPage>
-        </BreadcrumbItem>
-      </BreadcrumbList>
-    </Breadcrumb>
   );
 }

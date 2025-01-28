@@ -1,13 +1,4 @@
-'use client';
-
-import {
-  TableHead,
-  TableRow,
-  TableHeader,
-  TableBody,
-  TableCell,
-  Table
-} from '@/components/ui/table';
+import { SelectInvoice } from '@/lib/db';
 import {
   Card,
   CardContent,
@@ -16,48 +7,38 @@ import {
   CardHeader,
   CardTitle
 } from '@/components/ui/card';
-import { Client } from './client';
-import { SelectClient } from '@/lib/db';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { EmptyState } from './empty-state';
-import { Badge } from '@/components/ui/badge';
-import Link from 'next/link';
-import { ClientsTableContent } from './clients-table-content';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { InvoicesTableContent } from './invoices-table-content';
 
-export function ClientsTable({
-  clients,
+export function InvoicesTable({
+  invoices,
   offset,
-  totalClients
+  totalInvoices
 }: {
-  clients: SelectClient[];
+  invoices: SelectInvoice[];
   offset: number;
-  totalClients: number;
+  totalInvoices: number;
 }) {
-  if (clients.length === 0) {
-    return <EmptyState />;
-  }
-
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Clients</CardTitle>
+        <CardTitle>Invoices</CardTitle>
         <CardDescription>
-          Manage your clients and view their project history.
+          View and manage your invoices.
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <ClientsTableContent clients={clients} />
+        <InvoicesTableContent invoices={invoices} />
       </CardContent>
       <CardFooter>
         <div className="flex items-center w-full justify-between">
           <div className="text-xs text-muted-foreground">
             Showing{' '}
             <strong>
-              {offset + 1}-{Math.min(offset + clients.length, totalClients)}
+              {offset + 1}-{Math.min(offset + invoices.length, totalInvoices)}
             </strong>{' '}
-            of <strong>{totalClients}</strong> clients
+            of <strong>{totalInvoices}</strong> invoices
           </div>
           <div className="flex">
             <Button
@@ -76,7 +57,7 @@ export function ClientsTable({
             <Button
               variant="ghost"
               size="sm"
-              disabled={offset + clients.length >= totalClients}
+              disabled={offset + invoices.length >= totalInvoices}
               onClick={() => {
                 const searchParams = new URLSearchParams(window.location.search);
                 searchParams.set('offset', (offset + 10).toString());
