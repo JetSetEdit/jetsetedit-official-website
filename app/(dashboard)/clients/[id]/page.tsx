@@ -7,12 +7,11 @@ import { Building2, Mail, Phone, Globe, MapPin, FileText, CreditCard } from 'luc
 import { ClientInvoicesTable } from './client-invoices-table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-type Props = {
-  params: { id: string }
-  searchParams: { [key: string]: string | string[] | undefined }
-}
-
-export default async function ClientPage({ params, searchParams }: Props) {
+export default async function ClientPage({
+  params,
+}: {
+  params: { id: string };
+}) {
   const clientData = await getClientById(Number(params.id));
 
   if (!clientData) {
@@ -27,7 +26,7 @@ export default async function ClientPage({ params, searchParams }: Props) {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">{client.name}</h1>
           <p className="text-sm text-muted-foreground">
-            Client #{client.id} • Added on {new Date(client.createdAt).toLocaleDateString()}
+            Client #{client.id} • Added on {new Date(client.createdAt).toLocaleDateString('en-AU')}
           </p>
         </div>
         <Badge 
