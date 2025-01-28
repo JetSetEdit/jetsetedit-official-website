@@ -7,14 +7,12 @@ import { Building2, Mail, Phone, Globe, MapPin, FileText, CreditCard } from 'luc
 import { ClientInvoicesTable } from './client-invoices-table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-interface PageProps {
-  params: {
-    id: string;
-  };
-  searchParams?: { [key: string]: string | string[] | undefined };
+type Props = {
+  params: { id: string }
+  searchParams: { [key: string]: string | string[] | undefined }
 }
 
-export default async function ClientPage({ params }: PageProps) {
+export default async function ClientPage({ params, searchParams }: Props) {
   const clientData = await getClientById(Number(params.id));
 
   if (!clientData) {
