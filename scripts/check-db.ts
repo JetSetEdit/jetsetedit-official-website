@@ -1,37 +1,28 @@
-import { neon } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-http';
-import * as dotenv from 'dotenv';
+import { db, clients, products, invoices } from '../lib/db';
 
-dotenv.config();
+async function checkTables() {
+  console.log('Checking database tables...\n');
 
-const sql = neon(process.env.POSTGRES_URL!);
-const db = drizzle(sql);
-
-async function checkDatabase() {
-  try {
-    // Check existing tables
-    const tables = await sql`
-      SELECT table_name 
-      FROM information_schema.tables 
-      WHERE table_schema = 'public'
-    `;
-    
-    console.log('Existing tables:', tables);
-
-    // Check existing enums
-    const enums = await sql`
-      SELECT t.typname, array_agg(e.enumlabel) as enum_values
-      FROM pg_type t 
-      JOIN pg_enum e ON t.oid = e.enumtypid 
-      GROUP BY t.typname
-    `;
-    
-    console.log('Existing enums:', enums);
-
-  } catch (error) {
-    console.error('Error checking database:', error);
+  // Check clients
+  const allClients = await db.select().from(clients);
+  console.log(`Found ${allClients.length} clients`);
+  if (allClients.length > 0) {
+    console.log('Sample client:', allClients[0]);
   }
-  process.exit(0);
+
+  // Check products
+  const allProducts = await db.select().from(products);
+  console.log(`\nFound ${allProducts.length} products`);
+  if (allProducts.length > 0) {
+    console.log('Sample product:', allProducts[0]);
+  }
+
+  // Check invoices
+  const allInvoices = await db.select().from(invoices);
+  console.log(`\nFound ${allInvoices.length} invoices`);
+  if (allInvoices.length > 0) {
+    console.log('Sample invoice:', allInvoices[0]);
+  }
 }
 
-checkDatabase(); 
+checkTables().catch(console.error); 

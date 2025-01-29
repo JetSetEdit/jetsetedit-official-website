@@ -17,7 +17,12 @@ import { count, eq, ilike, and, or } from 'drizzle-orm';
 import { createInsertSchema } from 'drizzle-zod';
 import { sql } from 'drizzle-orm';
 
-export const db = drizzle(neon(process.env.POSTGRES_URL!));
+if (!process.env.DATABASE_URL) {
+  throw new Error('DATABASE_URL environment variable is not set');
+}
+
+const sql_url = process.env.DATABASE_URL;
+export const db = drizzle(neon(sql_url));
 
 export const statusEnum = pgEnum('status', ['active', 'inactive', 'archived']);
 export const clientTypeEnum = pgEnum('client_type', ['individual', 'business', 'agency']);
@@ -321,5 +326,42 @@ export async function getInvoiceWithItems(id: number): Promise<{
     invoice: invoice[0],
     items,
     payments
+  };
+}
+
+export async function getDashboardStats() {
+  const clientsCount = await db
+    .select({ count: count() })
+    .from(clients)
+    .where(eq(clients.status, 'active'));
+
+  const invoicesStats = await db
+    .select({
+      totalInvoices: sql<number>`COUNT(*)`,
+      overdueInvoices: sql<number>`COUNT(CASE WHEN status = 'overdue' THEN 1 END)`,
+      overdueAmount: sql<number>`SUM(CASE WHEN status = 'overdue' THEN total ELSE 0 END)`,
+      paidInvoices: sql<number>`COUNT(CASE WHEN status = 'paid' THEN 1 END)`,
+      paidAmount: sql<number>`SUM(CASE WHEN status = 'paid' THEN total ELSE 0 END)`
+    })
+    .from(invoices);
+
+  const lastMonthStart = new Date();
+  lastMonthStart.setMonth(lastMonthStart.getMonth() - 1);
+  lastMonthStart.setDate(1);
+  lastMonthStart.setHours(0, 0, 0, 0);
+
+  const newClientsLastMonth = await db
+    .select({ count: count() })
+    .from(clients)
+    .where(sql`${clients.createdAt} >= ${lastMonthStart}`);
+
+  return {
+    totalClients: clientsCount[0].count,
+    newClientsLastMonth: newClientsLastMonth[0].count,
+    totalInvoices: invoicesStats[0].totalInvoices,
+    overdueInvoices: invoicesStats[0].overdueInvoices,
+    overdueAmount: Number(invoicesStats[0].overdueAmount) || 0,
+    paidInvoices: invoicesStats[0].paidInvoices,
+    paidAmount: Number(invoicesStats[0].paidAmount) || 0
   };
 }

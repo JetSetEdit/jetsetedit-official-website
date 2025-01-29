@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { ClientsTable } from './clients-table';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { SelectClient } from '@/lib/db';
+import { AddClientDialog } from './add-client-dialog';
 
 export function ClientFilters({
   clients,
@@ -57,12 +58,14 @@ export function ClientFilters({
               Export
             </span>
           </Button>
-          <Button size="sm" className="h-8 gap-1">
-            <PlusCircle className="h-3.5 w-3.5" />
-            <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-              Add Client
-            </span>
-          </Button>
+          <AddClientDialog>
+            <Button size="sm" className="h-8 gap-1">
+              <PlusCircle className="h-3.5 w-3.5" />
+              <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
+                Add Client
+              </span>
+            </Button>
+          </AddClientDialog>
         </div>
       </div>
       {allFilters.map(value => (

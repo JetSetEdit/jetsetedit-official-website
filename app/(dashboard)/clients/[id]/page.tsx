@@ -7,13 +7,15 @@ import { Building2, Mail, Phone, Globe, MapPin, FileText, CreditCard } from 'luc
 import { ClientInvoicesTable } from './client-invoices-table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { PageProps } from 'next';
+import { AddInvoiceDialog } from './add-invoice-dialog';
 
 type Props = PageProps<{
   id: string;
 }>;
 
 export default async function ClientPage({ params }: Props) {
-  const clientData = await getClientById(Number(params.id));
+  const id = await Promise.resolve(params.id);
+  const clientData = await getClientById(Number(id));
 
   if (!clientData) {
     notFound();
@@ -36,6 +38,7 @@ export default async function ClientPage({ params }: Props) {
         >
           {client.status}
         </Badge>
+        <AddInvoiceDialog clientId={id} />
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">

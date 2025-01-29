@@ -12,8 +12,9 @@ type Props = PageProps<
 >;
 
 export default async function InvoicesPage({ searchParams }: Props) {
-  const offset = searchParams.offset ? Number(searchParams.offset) : 0;
-  const status = searchParams.status as 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled' | undefined;
+  const searchParamsData = await Promise.resolve(searchParams);
+  const offset = searchParamsData.offset ? Number(searchParamsData.offset) : 0;
+  const status = searchParamsData.status as 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled' | undefined;
 
   const { invoices, newOffset, totalInvoices } = await getInvoices(
     undefined,
