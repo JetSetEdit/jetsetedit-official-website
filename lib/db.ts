@@ -260,35 +260,35 @@ export async function getInvoices(
   newOffset: number | null;
   totalInvoices: number;
 }> {
-  let query = db.select().from(invoices);
+  const limit = 10;
+  const conditions = [];
 
   if (clientId) {
-    query = query.where(eq(invoices.clientId, clientId));
+    conditions.push(eq(invoices.clientId, clientId));
   }
 
   if (status) {
-    query = query.where(eq(invoices.status, status));
+    conditions.push(eq(invoices.status, status));
   }
 
-  const totalInvoices = await db
-    .select({ count: count() })
+  const query = db
+    .select()
     .from(invoices)
-    .where(
-      clientId ? eq(invoices.clientId, clientId) : undefined,
-      status ? eq(invoices.status, status) : undefined
-    );
-
-  const moreInvoices = await query
-    .orderBy(invoices.createdAt)
-    .limit(10)
+    .where(and(...conditions))
+    .limit(limit)
     .offset(offset);
 
-  const newOffset = moreInvoices.length >= 10 ? offset + 10 : null;
+  const totalQuery = db
+    .select({ count: sql<number>`count(*)` })
+    .from(invoices)
+    .where(and(...conditions));
+
+  const [result, [{ count }]] = await Promise.all([query, totalQuery]);
 
   return {
-    invoices: moreInvoices,
-    newOffset,
-    totalInvoices: totalInvoices[0].count
+    invoices: result,
+    newOffset: offset,
+    totalInvoices: count,
   };
 }
 

@@ -6,12 +6,13 @@ import { formatCurrency } from '@/lib/utils';
 import { Building2, Mail, Phone, Globe, MapPin, FileText, CreditCard } from 'lucide-react';
 import { ClientInvoicesTable } from './client-invoices-table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import type { PageProps } from 'next';
 
-export default async function ClientPage({
-  params,
-}: {
-  params: { id: string };
-}) {
+type Props = PageProps<{
+  id: string;
+}>;
+
+export default async function ClientPage({ params }: Props) {
   const clientData = await getClientById(Number(params.id));
 
   if (!clientData) {

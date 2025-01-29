@@ -1,11 +1,17 @@
 import { ClientFilters } from './client-filters';
 import { getClients } from '@/lib/db';
+import type { PageProps } from 'next';
 
-export default async function ClientsPage({
-  searchParams
-}: {
-  searchParams: { q?: string; offset?: string; filter?: string };
-}) {
+type Props = PageProps<
+  {},
+  {
+    q?: string;
+    offset?: string;
+    filter?: string;
+  }
+>;
+
+export default async function ClientsPage({ searchParams }: Props) {
   const search = searchParams.q ?? '';
   const offset = searchParams.offset ?? '0';
   const filter = searchParams.filter;

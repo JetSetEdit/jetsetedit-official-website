@@ -1,17 +1,17 @@
-import { db, clients } from '@/lib/db';
+import { db, clients, clientTypeEnum, statusEnum } from '@/lib/db';
 import { NextResponse } from 'next/server';
 
 export async function GET() {
   try {
-    // Sample client data
+    // Sample client data with correct types
     const sampleClients = [
       {
         name: 'John Smith',
         company: 'Tech Innovators LLC',
         email: 'john.smith@techinnovators.com',
         phone: '+1 (555) 123-4567',
-        type: 'business',
-        status: 'active',
+        type: 'business' as const,
+        status: 'active' as const,
         notes: 'Key client for web development projects',
         lastProject: '2024-01-15',
         billingAddress: '123 Business Ave\nSuite 100\nSan Francisco, CA 94105',
@@ -31,8 +31,8 @@ export async function GET() {
         company: 'Creative Design Studio',
         email: 'emma@creativedesign.studio',
         phone: '+1 (555) 234-5678',
-        type: 'agency',
-        status: 'active',
+        type: 'agency' as const,
+        status: 'active' as const,
         notes: 'Regular client for design projects',
         lastProject: '2024-01-20',
         billingAddress: '456 Design Street\nFloor 3\nNew York, NY 10013',
@@ -51,8 +51,8 @@ export async function GET() {
         name: 'David Chen',
         email: 'david.chen@email.com',
         phone: '+1 (555) 345-6789',
-        type: 'individual',
-        status: 'active',
+        type: 'individual' as const,
+        status: 'active' as const,
         notes: 'Freelance developer, regular client',
         lastProject: '2024-01-25',
         billingAddress: '789 Tech Road\nApt 5B\nAustin, TX 78701',
@@ -72,8 +72,8 @@ export async function GET() {
         company: 'Digital Marketing Pro',
         email: 'sophie@digitalmarketingpro.com',
         phone: '+1 (555) 456-7890',
-        type: 'business',
-        status: 'active',
+        type: 'business' as const,
+        status: 'active' as const,
         notes: 'Marketing agency, monthly retainer',
         lastProject: '2024-01-30',
         billingAddress: '321 Marketing Blvd\nSuite 200\nChicago, IL 60601',
@@ -93,8 +93,8 @@ export async function GET() {
         company: 'Startup Ventures Inc',
         email: 'alex@startupventures.co',
         phone: '+1 (555) 567-8901',
-        type: 'business',
-        status: 'active',
+        type: 'business' as const,
+        status: 'active' as const,
         notes: 'Startup client, rapid growth potential',
         lastProject: '2024-02-01',
         billingAddress: '567 Innovation Way\nSeattle, WA 98101',
