@@ -1,3 +1,5 @@
+"use client";
+
 import { SelectInvoice } from '@/lib/db';
 import {
   Card,

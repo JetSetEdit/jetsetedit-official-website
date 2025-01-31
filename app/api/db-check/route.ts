@@ -3,36 +3,27 @@ import { NextResponse } from 'next/server';
 
 export async function GET() {
   try {
-    // Check clients
-    const allClients = await db.select().from(clients);
-    console.log(`Found ${allClients.length} clients`);
-
-    // Check products
-    const allProducts = await db.select().from(products);
-    console.log(`Found ${allProducts.length} products`);
-
-    // Check invoices
-    const allInvoices = await db.select().from(invoices);
-    console.log(`Found ${allInvoices.length} invoices`);
+    const [clientCount, productCount, invoiceCount] = await Promise.all([
+      db.select().from(clients),
+      db.select().from(products),
+      db.select().from(invoices),
+    ]);
 
     return NextResponse.json({
-      clients: {
-        count: allClients.length,
-        sample: allClients.length > 0 ? allClients[0] : null
-      },
-      products: {
-        count: allProducts.length,
-        sample: allProducts.length > 0 ? allProducts[0] : null
-      },
-      invoices: {
-        count: allInvoices.length,
-        sample: allInvoices.length > 0 ? allInvoices[0] : null
+      status: 'connected',
+      tables: {
+        clients: clientCount.length,
+        products: productCount.length,
+        invoices: invoiceCount.length,
       }
     });
   } catch (error) {
-    console.error('Error checking database:', error);
+    console.error('Database connection error:', error);
     return NextResponse.json(
-      { error: 'Failed to check database' },
+      { 
+        status: 'error',
+        message: error instanceof Error ? error.message : 'Failed to connect to database'
+      },
       { status: 500 }
     );
   }

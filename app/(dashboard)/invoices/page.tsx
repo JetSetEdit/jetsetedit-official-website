@@ -2,6 +2,9 @@ import { getInvoices } from '@/lib/db';
 import { InvoicesTable } from './invoices-table';
 import { InvoiceFilters } from './invoice-filters';
 import type { PageProps } from 'next';
+import { Button } from '@/components/ui/button';
+import Link from 'next/link';
+import { Plus } from 'lucide-react';
 
 type Props = PageProps<
   {},
@@ -31,8 +34,19 @@ export default async function InvoicesPage({ searchParams }: Props) {
             Create and manage invoices for your clients.
           </p>
         </div>
+        <Link href="/test-invoice">
+          <Button>
+            <Plus className="mr-2 h-4 w-4" />
+            Create Invoice
+          </Button>
+        </Link>
       </div>
       <InvoiceFilters
+        invoices={invoices}
+        offset={offset}
+        totalInvoices={totalInvoices}
+      />
+      <InvoicesTable
         invoices={invoices}
         offset={offset}
         totalInvoices={totalInvoices}

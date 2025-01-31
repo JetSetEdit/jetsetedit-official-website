@@ -9,8 +9,7 @@ import { UpdateStatus } from './update-status';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Edit } from 'lucide-react';
-import { InvoicePayment } from '@/components/invoice-payment';
-import { revalidatePath } from 'next/cache';
+import { PaymentSection } from './payment-section';
 
 interface Props {
   params: {
@@ -100,22 +99,7 @@ export default async function InvoicePage({ params }: Props) {
           </CardContent>
         </Card>
 
-        {invoice.status !== 'paid' && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Payment</CardTitle>
-              <CardDescription>Pay this invoice using your credit card.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <InvoicePayment 
-                invoice={invoice} 
-                onSuccess={() => {
-                  revalidatePath(`/invoices/${invoice.id}`);
-                }}
-              />
-            </CardContent>
-          </Card>
-        )}
+        {invoice.status !== 'paid' && <PaymentSection invoice={invoice} />}
 
         <Card>
           <CardHeader>
@@ -146,7 +130,7 @@ export default async function InvoicePage({ params }: Props) {
                   <td className="pt-4 text-right">{formatCurrency(Number(invoice.subtotal))}</td>
                 </tr>
                 <tr>
-                  <td colSpan={3} className="pt-2 text-right font-medium">Tax ({Number(invoice.taxRate)}%)</td>
+                  <td colSpan={3} className="pt-2 text-right font-medium">Tax ({Number(invoice.taxRate) * 100}%)</td>
                   <td className="pt-2 text-right">{formatCurrency(Number(invoice.taxAmount))}</td>
                 </tr>
                 <tr>

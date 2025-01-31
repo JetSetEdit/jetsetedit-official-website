@@ -1,6 +1,11 @@
 import { db, clients } from '@/lib/db';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import Stripe from 'stripe';
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: '2023-10-16',
+});
 
 const createClientSchema = z.object({
   name: z.string().min(1),
@@ -17,6 +22,18 @@ export async function POST(request: Request) {
     const json = await request.json();
     const body = createClientSchema.parse(json);
 
+    // Create Stripe customer
+    const stripeCustomer = await stripe.customers.create({
+      name: body.name,
+      email: body.email,
+      phone: body.phone || undefined,
+      metadata: {
+        company: body.company || '',
+        type: body.type,
+        website: body.website || '',
+      },
+    });
+
     const result = await db.insert(clients).values({
       name: body.name,
       company: body.company || null,
@@ -26,9 +43,13 @@ export async function POST(request: Request) {
       website: body.website || null,
       notes: body.notes || null,
       status: 'active',
+      stripeCustomerId: stripeCustomer.id,
     });
 
-    return NextResponse.json({ message: 'Client created successfully' }, { status: 201 });
+    return NextResponse.json({ 
+      message: 'Client created successfully',
+      stripeCustomerId: stripeCustomer.id 
+    }, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(

@@ -5,7 +5,8 @@ import {
   Package2,
   PanelLeft,
   Settings,
-  Users2
+  Users2,
+  Receipt
 } from 'lucide-react';
 import React from 'react';
 
@@ -73,6 +74,10 @@ function DesktopNav() {
         <NavItem href="/invoices" label="Invoices">
           <LineChart className="h-5 w-5" />
         </NavItem>
+
+        <NavItem href="/expenses" label="Expenses">
+          <Receipt className="h-5 w-5" />
+        </NavItem>
       </nav>
       <nav className="mt-auto flex flex-col items-center gap-4 px-2 sm:py-5">
         <Tooltip>
@@ -130,6 +135,13 @@ function MobileNav() {
           >
             <LineChart className="h-5 w-5" />
             Invoices
+          </Link>
+          <Link
+            href="/expenses"
+            className="flex items-center gap-4 px-2.5 text-muted-foreground hover:text-foreground"
+          >
+            <Receipt className="h-5 w-5" />
+            Expenses
           </Link>
           <Link
             href="/settings"

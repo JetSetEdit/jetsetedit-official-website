@@ -63,7 +63,8 @@ export const clients = pgTable('clients', {
   accountManager: varchar('account_manager', { length: 255 }),
   lastInvoiceDate: date('last_invoice_date'),
   totalRevenue: numeric('total_revenue', { precision: 15, scale: 2 }).default('0'),
-  outstandingBalance: numeric('outstanding_balance', { precision: 15, scale: 2 }).default('0')
+  outstandingBalance: numeric('outstanding_balance', { precision: 15, scale: 2 }).default('0'),
+  stripeCustomerId: varchar('stripe_customer_id', { length: 255 })
 });
 
 export type SelectClient = typeof clients.$inferSelect;
