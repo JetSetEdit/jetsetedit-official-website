@@ -8,6 +8,7 @@ import { db } from "@/lib/db";
 import { expenses } from "@/lib/db/schema/expenses";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { and, gte, lte } from "drizzle-orm";
+import { ExpenseReports } from "@/components/expense-reports";
 
 async function getExpenseStats() {
   const currentDate = new Date();
@@ -54,7 +55,11 @@ async function getExpenses() {
     category: expense.category || '',
     status: expense.status || 'pending',
     isDeductible: expense.isDeductible || false,
-    receiptUrl: expense.receiptUrl || null,
+    receiptUrl: expense.receiptUrl || undefined,
+    deductionCategory: undefined,
+    deductibleAmount: undefined,
+    jurisdiction: undefined,
+    taxYear: new Date().getFullYear(),
   }));
 }
 
@@ -174,17 +179,7 @@ export default async function ExpensesPage() {
         </TabsContent>
 
         <TabsContent value="reports" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Expense Reports</CardTitle>
-              <CardDescription>Generate and view expense reports.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-sm text-muted-foreground">
-                No reports generated yet.
-              </div>
-            </CardContent>
-          </Card>
+          <ExpenseReports expenses={expensesList} />
         </TabsContent>
       </Tabs>
     </div>
