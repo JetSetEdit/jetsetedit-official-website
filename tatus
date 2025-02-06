@@ -1,5 +1,0 @@
-[33mc60f779[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mdevelopment[m[33m, [m[1;31morigin/development[m[33m)[m feat: Add expense management and fix Stripe payment integration
-[33mbe106d7[m feat: Add expense management and fix Stripe payment integration
-[33m3274f05[m feat: integrate Stripe payment processing for invoices
-[33m377e5af[m fix: resolve Next.js type errors and improve type definitions - Update page components, add proper type declarations, update tsconfig, remove unused components
-[33m7bb51c9[m chore: fix build issues and clean up dependencies
