@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '../auth/[...nextauth]/route';
+import { authOptions } from '@/lib/auth';
 import { stripe } from '@/lib/stripe';
 
 export async function GET() {
@@ -9,39 +9,12 @@ export async function GET() {
     
     const session = await getServerSession(authOptions);
     console.log('Session status:', session ? 'Authenticated' : 'Not authenticated');
-    console.log('Session details:', JSON.stringify(session, null, 2));
 
     if (!session) {
       console.log('No session found, returning 401');
       return new NextResponse(
         JSON.stringify({ error: 'Unauthorized' }),
         { status: 401 }
-      );
-    }
-
-    console.log('Testing Stripe connection...');
-    console.log('Using Stripe key ending in:', process.env.STRIPE_SECRET_KEY?.slice(-4));
-    
-    // Test Stripe connection first
-    let testCustomer;
-    try {
-      testCustomer = await stripe.customers.list({ limit: 1 });
-      console.log('Stripe connection successful');
-      console.log('Found customers in test:', testCustomer.data.length);
-      if (testCustomer.data.length > 0) {
-        console.log('Sample customer:', JSON.stringify(testCustomer.data[0], null, 2));
-      } else {
-        console.log('No customers found in test');
-      }
-    } catch (stripeError) {
-      console.error('Stripe connection test failed:', stripeError);
-      console.error('Full Stripe error:', JSON.stringify(stripeError, null, 2));
-      return new NextResponse(
-        JSON.stringify({ 
-          error: 'Failed to connect to Stripe',
-          details: process.env.NODE_ENV === 'development' ? stripeError.message : undefined
-        }),
-        { status: 500 }
       );
     }
 
@@ -53,22 +26,12 @@ export async function GET() {
     });
 
     console.log(`Found ${customers.data.length} customers in Stripe`);
-    if (customers.data.length > 0) {
-      console.log('First customer data:', JSON.stringify(customers.data[0], null, 2));
-    }
 
     // Transform the customers data
     const clients = customers.data.map(customer => {
       const activeSubscription = customer.subscriptions?.data.find(
         sub => sub.status === 'active' || sub.status === 'trialing'
       );
-
-      console.log(`Processing customer ${customer.id}:`, {
-        name: customer.name,
-        email: customer.email,
-        hasSubscription: !!activeSubscription,
-        subscriptionStatus: activeSubscription?.status
-      });
 
       return {
         id: customer.id,
@@ -81,35 +44,175 @@ export async function GET() {
           ? new Date(activeSubscription.current_period_end * 1000).toISOString()
           : null,
         createdAt: new Date(customer.created * 1000).toISOString(),
+        metadata: customer.metadata,
       };
     });
 
-    console.log(`Transformed ${clients.length} clients`);
-    if (clients.length > 0) {
-      console.log('Sample transformed client:', JSON.stringify(clients[0], null, 2));
-    }
-
-    const response = new NextResponse(JSON.stringify(clients), {
+    return new NextResponse(JSON.stringify(clients), {
       status: 200,
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
     });
-
-    console.log('Sending response with status 200');
-    return response;
 
   } catch (error) {
     console.error('Error fetching clients:', error);
-    // Log more details about the error
-    if (error instanceof Error) {
-      console.error('Error name:', error.name);
-      console.error('Error message:', error.message);
-      console.error('Error stack:', error.stack);
-    }
     return new NextResponse(
       JSON.stringify({ 
         error: 'Internal Server Error',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      }),
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return new NextResponse(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401 }
+      );
+    }
+
+    const body = await request.json();
+    const { name, email } = body;
+
+    if (!email) {
+      return new NextResponse(
+        JSON.stringify({ error: 'Email is required' }),
+        { status: 400 }
+      );
+    }
+
+    // Check if customer already exists
+    const existingCustomers = await stripe.customers.list({
+      email,
+      limit: 1,
+    });
+
+    if (existingCustomers.data.length > 0) {
+      return new NextResponse(
+        JSON.stringify({ error: 'Customer with this email already exists' }),
+        { status: 400 }
+      );
+    }
+
+    // Create new customer in Stripe
+    const customer = await stripe.customers.create({
+      email,
+      name,
+      metadata: {
+        source: 'JetSetEdit Website',
+      },
+    });
+
+    return new NextResponse(
+      JSON.stringify(customer),
+      { status: 201 }
+    );
+
+  } catch (error) {
+    console.error('Error creating client:', error);
+    return new NextResponse(
+      JSON.stringify({ 
+        error: 'Failed to create client',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      }),
+      { status: 500 }
+    );
+  }
+}
+
+export async function PUT(request: Request) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return new NextResponse(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401 }
+      );
+    }
+
+    const body = await request.json();
+    const { id, name, email, metadata } = body;
+
+    if (!id) {
+      return new NextResponse(
+        JSON.stringify({ error: 'Customer ID is required' }),
+        { status: 400 }
+      );
+    }
+
+    // Update customer in Stripe
+    const customer = await stripe.customers.update(id, {
+      name,
+      email,
+      metadata,
+    });
+
+    return new NextResponse(
+      JSON.stringify(customer),
+      { status: 200 }
+    );
+
+  } catch (error) {
+    console.error('Error updating client:', error);
+    return new NextResponse(
+      JSON.stringify({ 
+        error: 'Failed to update client',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      }),
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return new NextResponse(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401 }
+      );
+    }
+
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return new NextResponse(
+        JSON.stringify({ error: 'Customer ID is required' }),
+        { status: 400 }
+      );
+    }
+
+    // Check if customer has active subscriptions
+    const customer = await stripe.customers.retrieve(id, {
+      expand: ['subscriptions']
+    });
+
+    if ((customer as any).subscriptions?.data.length > 0) {
+      return new NextResponse(
+        JSON.stringify({ error: 'Cannot delete customer with active subscriptions' }),
+        { status: 400 }
+      );
+    }
+
+    // Delete customer from Stripe
+    await stripe.customers.del(id);
+
+    return new NextResponse(
+      JSON.stringify({ success: true }),
+      { status: 200 }
+    );
+
+  } catch (error) {
+    console.error('Error deleting client:', error);
+    return new NextResponse(
+      JSON.stringify({ 
+        error: 'Failed to delete client',
         details: process.env.NODE_ENV === 'development' ? error.message : undefined
       }),
       { status: 500 }

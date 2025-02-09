@@ -17,6 +17,7 @@ const dashboardNavigation = [
   { name: 'Clients', href: '/admin/clients' },
   { name: 'Subscriptions', href: '/admin/subscriptions' },
   { name: 'Billing', href: '/admin/billing' },
+  { name: 'Tax Deductions', href: '/admin/tax-deductions' },
   { name: 'Settings', href: '/admin/settings' },
 ];
 

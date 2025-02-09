@@ -22,6 +22,7 @@ interface Client {
   subscriptionStatus: string;
   currentPeriodEnd: string | null;
   createdAt: string;
+  metadata: Record<string, string>;
 }
 
 export default function ClientsPage() {
@@ -29,28 +30,104 @@ export default function ClientsPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [editingClient, setEditingClient] = useState<Client | null>(null);
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+  });
 
   useEffect(() => {
-    const fetchClients = async () => {
-      try {
-        const response = await fetch('/api/clients');
-        if (!response.ok) {
-          throw new Error('Failed to fetch clients');
-        }
-        const data = await response.json();
-        setClients(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load clients');
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     if (status === 'authenticated') {
       fetchClients();
     }
   }, [status]);
+
+  const fetchClients = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/clients');
+      if (!response.ok) {
+        throw new Error('Failed to fetch clients');
+      }
+      const data = await response.json();
+      setClients(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load clients');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      const url = editingClient ? '/api/clients' : '/api/clients';
+      const method = editingClient ? 'PUT' : 'POST';
+      const body = editingClient 
+        ? { ...formData, id: editingClient.id }
+        : formData;
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to save client');
+      }
+
+      await fetchClients();
+      setShowForm(false);
+      setEditingClient(null);
+      setFormData({ name: '', email: '' });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save client');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEdit = (client: Client) => {
+    setEditingClient(client);
+    setFormData({
+      name: client.name,
+      email: client.email,
+    });
+    setShowForm(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this client? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const response = await fetch(`/api/clients?id=${id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to delete client');
+      }
+
+      await fetchClients();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete client');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   if (status === 'loading' || loading) {
     return (
@@ -83,13 +160,56 @@ export default function ClientsPage() {
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold">Clients</h1>
           <button
-            onClick={() => window.location.href = '/admin/clients/new'}
+            onClick={() => {
+              setShowForm(!showForm);
+              setEditingClient(null);
+              setFormData({ name: '', email: '' });
+            }}
             className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
           >
-            Add New Client
+            {showForm ? 'Cancel' : 'Add New Client'}
           </button>
         </div>
-        
+
+        {showForm && (
+          <form onSubmit={handleSubmit} className="mb-8 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Name</label>
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  placeholder="Client Name"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Email</label>
+                <input
+                  type="email"
+                  required
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  placeholder="client@example.com"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <button
+                type="submit"
+                disabled={loading}
+                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400"
+              >
+                {loading ? 'Saving...' : editingClient ? 'Update Client' : 'Add Client'}
+              </button>
+            </div>
+          </form>
+        )}
+
         <div className="rounded-md border">
           <Table>
             <TableHeader>
@@ -100,6 +220,7 @@ export default function ClientsPage() {
                 <TableHead>Subscription</TableHead>
                 <TableHead>Current Period End</TableHead>
                 <TableHead>Created</TableHead>
+                <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -128,11 +249,35 @@ export default function ClientsPage() {
                   <TableCell>
                     {format(new Date(client.createdAt), 'MMM d, yyyy')}
                   </TableCell>
+                  <TableCell>
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => handleEdit(client)}
+                        className="text-blue-600 hover:text-blue-700"
+                      >
+                        Edit
+                      </button>
+                      {!client.subscriptionStatus && (
+                        <button
+                          onClick={() => handleDelete(client.id)}
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          Delete
+                        </button>
+                      )}
+                      <button
+                        onClick={() => window.location.href = `/admin/clients/${client.id}`}
+                        className="text-green-600 hover:text-green-700"
+                      >
+                        View
+                      </button>
+                    </div>
+                  </TableCell>
                 </TableRow>
               ))}
               {clients.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-gray-500">
+                  <TableCell colSpan={7} className="text-center text-gray-500">
                     No clients found
                   </TableCell>
                 </TableRow>
