@@ -12,6 +12,9 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { StripeSyncStatus } from '@/components/StripeSyncStatus';
+import { toast } from 'sonner';
 import { format } from 'date-fns';
 
 interface Subscription {
@@ -36,75 +39,54 @@ export default function SubscriptionsPage() {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lastSyncTime, setLastSyncTime] = useState<Date>();
 
-  useEffect(() => {
-    const fetchSubscriptions = async () => {
-      try {
-        console.log('Fetching subscriptions...', { 
-          sessionStatus: status, 
-          hasSession: !!session,
-          sessionDetails: session 
-        });
-
-        const response = await fetch('/api/subscriptions');
-        console.log('Response status:', response.status);
-        console.log('Response headers:', Object.fromEntries(response.headers.entries()));
-        
-        const contentType = response.headers.get('content-type');
-        console.log('Response content type:', contentType);
-        
-        const text = await response.text();
-        console.log('Raw response:', text);
-        
-        if (!response.ok) {
-          let errorMessage = 'Failed to fetch subscriptions';
-          try {
-            const errorData = JSON.parse(text);
-            errorMessage = errorData.error || errorMessage;
-            console.error('Error details:', errorData);
-          } catch (e) {
-            console.error('Failed to parse error response:', e);
-          }
-          throw new Error(errorMessage);
-        }
-        
-        let data;
-        try {
-          data = JSON.parse(text);
-          console.log('Parsed subscriptions data:', data);
-          if (Array.isArray(data)) {
-            console.log(`Found ${data.length} subscriptions in response`);
-            if (data.length > 0) {
-              console.log('Sample subscription:', data[0]);
-            } else {
-              console.log('No subscriptions found in response');
-            }
-          } else {
-            console.error('Response is not an array:', data);
-          }
-        } catch (e) {
-          console.error('Failed to parse subscriptions response:', e);
-          throw new Error('Invalid response format');
-        }
-        
-        setSubscriptions(data);
-      } catch (err) {
-        console.error('Error in fetchSubscriptions:', err);
-        setError(err instanceof Error ? err.message : 'An unknown error occurred');
-      } finally {
-        setLoading(false);
+  const fetchSubscriptions = async () => {
+    try {
+      const response = await fetch('/api/subscriptions');
+      if (!response.ok) {
+        throw new Error('Failed to fetch subscriptions');
       }
-    };
-
-    if (status === 'authenticated') {
-      console.log('Session is authenticated, fetching subscriptions...');
-      fetchSubscriptions();
-    } else if (status === 'unauthenticated') {
-      console.log('Session is unauthenticated');
-      setError('Please sign in to view subscriptions');
+      const data = await response.json();
+      setSubscriptions(data);
+      setLastSyncTime(new Date());
+    } catch (err) {
+      console.error('Error in fetchSubscriptions:', err);
+      setError(err instanceof Error ? err.message : 'An unknown error occurred');
+      throw err; // Re-throw to be caught by the sync status component
+    } finally {
       setLoading(false);
     }
-  }, [status, session]);
+  };
+
+  useEffect(() => {
+    if (status === 'authenticated') {
+      fetchSubscriptions();
+    }
+  }, [status]);
+
+  const handleDelete = async (subscriptionId: string) => {
+    if (!confirm('Are you sure you want to cancel this subscription?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/subscriptions/${subscriptionId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to cancel subscription');
+      }
+
+      toast.success('Subscription cancelled successfully');
+      // Refresh the subscriptions list
+      fetchSubscriptions();
+    } catch (err) {
+      console.error('Error cancelling subscription:', err);
+      toast.error('Failed to cancel subscription');
+    }
+  };
 
   if (status === 'loading' || loading) {
     return (
@@ -135,13 +117,20 @@ export default function SubscriptionsPage() {
     <div className="container mx-auto py-10">
       <Card className="p-6">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">Subscriptions</h1>
-          <button
+          <div>
+            <h1 className="text-2xl font-bold">Subscriptions</h1>
+            <div className="mt-2">
+              <StripeSyncStatus
+                onRefresh={fetchSubscriptions}
+                lastSyncTime={lastSyncTime}
+              />
+            </div>
+          </div>
+          <Button
             onClick={() => window.location.href = '/admin/subscriptions/new'}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
           >
             Create Subscription
-          </button>
+          </Button>
         </div>
         
         <div className="rounded-md border">
@@ -189,12 +178,24 @@ export default function SubscriptionsPage() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <button
-                      onClick={() => window.location.href = `/admin/subscriptions/${subscription.id}`}
-                      className="text-blue-600 hover:text-blue-700 text-sm font-medium"
-                    >
-                      Manage
-                    </button>
+                    <div className="flex items-center space-x-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => window.location.href = `/admin/subscriptions/${subscription.id}`}
+                        className="text-sm"
+                      >
+                        Manage
+                      </Button>
+                      {subscription.status === 'active' && (
+                        <Button
+                          variant="destructive"
+                          onClick={() => handleDelete(subscription.id)}
+                          className="text-sm"
+                        >
+                          Cancel
+                        </Button>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}

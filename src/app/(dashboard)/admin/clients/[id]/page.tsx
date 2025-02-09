@@ -1,133 +1,144 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { useParams } from 'next/navigation';
 import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { format } from 'date-fns';
+import { StripeSyncStatus } from '@/components/StripeSyncStatus';
+import { toast } from 'sonner';
 
 interface Client {
   id: string;
   name: string;
   email: string;
   status: string;
-  subscriptionStatus: string;
-  currentPeriodEnd: string | null;
-  createdAt: string;
-  metadata: Record<string, string>;
-}
-
-interface Subscription {
-  id: string;
-  status: string;
-  currentPeriodStart: string;
-  currentPeriodEnd: string;
-  plan: {
+  subscriptions: Array<{
     id: string;
-    name: string;
-    amount: number;
-    currency: string;
-    interval: string;
-  };
+    status: string;
+    currentPeriodStart: string;
+    currentPeriodEnd: string;
+    plan: {
+      id: string;
+      name: string;
+      amount: number;
+      currency: string;
+      interval: string;
+    };
+  }>;
+  createdAt: string;
+  metadata: Record<string, any>;
 }
 
-export default function ClientDetailPage() {
+const CLIENT_STATUSES = [
+  'Active',
+  'Inactive',
+  'Pending',
+  'Archived'
+] as const;
+
+export default function ClientPage({ params }: { params: { id: string } }) {
+  const router = useRouter();
   const { data: session, status } = useSession();
-  const params = useParams();
   const [client, setClient] = useState<Client | null>(null);
-  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showEditForm, setShowEditForm] = useState(false);
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-  });
+  const [lastSyncTime, setLastSyncTime] = useState<Date>();
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedStatus, setEditedStatus] = useState<string>('');
+  const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    if (status === 'authenticated' && params.id) {
-      fetchClientData();
-    }
-  }, [status, params.id]);
-
-  const fetchClientData = async () => {
+  const fetchClientDetails = async () => {
     try {
-      setLoading(true);
-      
-      // Fetch client details
-      const clientResponse = await fetch(`/api/clients/${params.id}`);
-      if (!clientResponse.ok) {
+      const response = await fetch(`/api/clients/${params.id}`);
+      if (!response.ok) {
         throw new Error('Failed to fetch client details');
       }
-      const clientData = await clientResponse.json();
-      setClient(clientData);
-      setFormData({
-        name: clientData.name,
-        email: clientData.email,
-      });
-
-      // Fetch client's subscriptions
-      const subscriptionsResponse = await fetch(`/api/subscriptions?customerId=${params.id}`);
-      if (!subscriptionsResponse.ok) {
-        throw new Error('Failed to fetch subscriptions');
-      }
-      const subscriptionsData = await subscriptionsResponse.json();
-      setSubscriptions(subscriptionsData);
-
+      const data = await response.json();
+      setClient(data);
+      setEditedStatus(data.status);
+      setLastSyncTime(new Date());
+      setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load client data');
-      console.error(err);
+      setError('Failed to load client details');
+      toast.error('Failed to load client details');
+      throw err;
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/sign-in');
+      return;
+    }
+
+    if (status === 'authenticated') {
+      fetchClientDetails();
+    }
+  }, [status, params.id]);
+
+  const handleSaveStatus = async () => {
+    if (!client) return;
+
+    setSaving(true);
     try {
-      setLoading(true);
-      const response = await fetch('/api/clients', {
+      const response = await fetch(`/api/clients/${client.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          id: params.id,
-          ...formData,
+          status: editedStatus,
         }),
       });
 
       if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to update client');
+        throw new Error('Failed to update client status');
       }
 
-      await fetchClientData();
-      setShowEditForm(false);
+      await fetchClientDetails();
+      setIsEditing(false);
+      toast.success('Client status updated successfully');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update client');
-      console.error(err);
+      toast.error('Failed to update client status');
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
-  const handleCreateSubscription = () => {
-    window.location.href = `/admin/subscriptions/new?clientId=${params.id}`;
+  const handleDelete = async () => {
+    if (!window.confirm('Are you sure you want to delete this client? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/clients/${params.id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete client');
+      }
+
+      toast.success('Client deleted successfully');
+      router.push('/admin/clients');
+      router.refresh();
+    } catch (err) {
+      toast.error('Failed to delete client');
+    }
   };
 
-  const handleManageSubscription = (subscriptionId: string) => {
-    window.location.href = `/admin/subscriptions/${subscriptionId}`;
-  };
-
-  if (status === 'loading' || loading) {
+  if (loading) {
     return (
-      <div className="container mx-auto py-10">
+      <div className="container mx-auto p-6">
         <Card className="p-6">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
-            <p className="mt-2 text-gray-500">Loading client details...</p>
+          <div className="animate-pulse space-y-4">
+            <div className="h-4 bg-gray-200 rounded w-1/4"></div>
+            <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+            <div className="h-4 bg-gray-200 rounded w-3/4"></div>
           </div>
         </Card>
       </div>
@@ -136,10 +147,18 @@ export default function ClientDetailPage() {
 
   if (error) {
     return (
-      <div className="container mx-auto py-10">
+      <div className="container mx-auto p-6">
         <Card className="p-6">
-          <div className="text-center text-red-500">
-            <p>{error}</p>
+          <div className="text-center">
+            <h2 className="text-xl font-semibold text-red-600">Error</h2>
+            <p className="mt-2">{error}</p>
+            <Button
+              onClick={() => router.push('/admin/clients')}
+              className="mt-4"
+              variant="outline"
+            >
+              Back to Clients
+            </Button>
           </div>
         </Card>
       </div>
@@ -148,10 +167,17 @@ export default function ClientDetailPage() {
 
   if (!client) {
     return (
-      <div className="container mx-auto py-10">
+      <div className="container mx-auto p-6">
         <Card className="p-6">
-          <div className="text-center text-gray-500">
-            <p>Client not found</p>
+          <div className="text-center">
+            <h2 className="text-xl font-semibold">Client Not Found</h2>
+            <Button
+              onClick={() => router.push('/admin/clients')}
+              className="mt-4"
+              variant="outline"
+            >
+              Back to Clients
+            </Button>
           </div>
         </Card>
       </div>
@@ -159,141 +185,165 @@ export default function ClientDetailPage() {
   }
 
   return (
-    <div className="container mx-auto py-10">
-      <div className="mb-6 flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Client Details</h1>
-        <div className="space-x-4">
-          <button
-            onClick={() => setShowEditForm(!showEditForm)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+    <div className="container mx-auto p-6">
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Client Details</h1>
+          <div className="mt-2">
+            <StripeSyncStatus
+              onRefresh={fetchClientDetails}
+              lastSyncTime={lastSyncTime}
+            />
+          </div>
+        </div>
+        <div className="space-x-2">
+          <Button
+            onClick={() => router.push('/admin/clients')}
+            variant="outline"
           >
-            {showEditForm ? 'Cancel' : 'Edit Client'}
-          </button>
-          <button
-            onClick={() => window.location.href = '/admin/clients'}
-            className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700"
-          >
-            Back to Clients
-          </button>
+            Back
+          </Button>
+          {client.subscriptions.length === 0 && (
+            <Button
+              onClick={handleDelete}
+              variant="destructive"
+            >
+              Delete Client
+            </Button>
+          )}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card className="p-6">
-          <h2 className="text-lg font-semibold mb-4">Client Information</h2>
-          
-          {showEditForm ? (
-            <form onSubmit={handleSubmit} className="space-y-4">
+      <Card className="p-6">
+        <div className="grid gap-6">
+          <div>
+            <h2 className="text-xl font-semibold mb-4">Client Information</h2>
+            <div className="grid gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Name</label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                />
+                <span className="font-medium">Name:</span> {client.name}
               </div>
+              <div>
+                <span className="font-medium">Email:</span> {client.email}
+              </div>
+              <div>
+                <span className="font-medium">Status:</span>{' '}
+                {isEditing ? (
+                  <div className="inline-flex items-center space-x-2">
+                    <select
+                      value={editedStatus}
+                      onChange={(e) => setEditedStatus(e.target.value)}
+                      className="ml-2 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    >
+                      {CLIENT_STATUSES.map((status) => (
+                        <option key={status} value={status}>
+                          {status}
+                        </option>
+                      ))}
+                    </select>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleSaveStatus}
+                      disabled={saving}
+                    >
+                      {saving ? 'Saving...' : 'Save'}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setIsEditing(false);
+                        setEditedStatus(client.status);
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <Badge variant={client.status === 'Active' ? 'success' : 'secondary'}>
+                      {client.status}
+                    </Badge>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsEditing(true)}
+                      className="ml-2"
+                    >
+                      Edit
+                    </Button>
+                  </>
+                )}
+              </div>
+              <div>
+                <span className="font-medium">Created:</span>{' '}
+                {new Date(client.createdAt).toLocaleDateString()}
+              </div>
+            </div>
+          </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Email</label>
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                />
-              </div>
-
-              <div className="flex justify-end">
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400"
-                >
-                  {loading ? 'Saving...' : 'Save Changes'}
-                </button>
-              </div>
-            </form>
-          ) : (
-            <div className="space-y-4">
-              <div>
-                <p className="text-sm text-gray-500">Name</p>
-                <p className="font-medium">{client.name}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Email</p>
-                <p className="font-medium">{client.email}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Status</p>
-                <Badge variant={client.status === 'Active' ? 'success' : 'secondary'}>
-                  {client.status}
-                </Badge>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Created</p>
-                <p className="font-medium">{format(new Date(client.createdAt), 'MMM d, yyyy')}</p>
+          {client.subscriptions.length > 0 && (
+            <div>
+              <h2 className="text-xl font-semibold mb-4">Subscriptions</h2>
+              <div className="space-y-4">
+                {client.subscriptions.map((subscription) => (
+                  <Card key={subscription.id} className="p-4">
+                    <div className="grid gap-2">
+                      <div>
+                        <span className="font-medium">Plan:</span>{' '}
+                        {subscription.plan.name}
+                      </div>
+                      <div>
+                        <span className="font-medium">Status:</span>{' '}
+                        <Badge
+                          variant={
+                            subscription.status === 'active'
+                              ? 'success'
+                              : 'default'
+                          }
+                        >
+                          {subscription.status}
+                        </Badge>
+                      </div>
+                      <div>
+                        <span className="font-medium">Amount:</span>{' '}
+                        {new Intl.NumberFormat('en-US', {
+                          style: 'currency',
+                          currency: subscription.plan.currency,
+                        }).format(subscription.plan.amount)}
+                        /{subscription.plan.interval}
+                      </div>
+                      <div>
+                        <span className="font-medium">Current Period:</span>{' '}
+                        {new Date(
+                          subscription.currentPeriodStart
+                        ).toLocaleDateString()}{' '}
+                        -{' '}
+                        {new Date(
+                          subscription.currentPeriodEnd
+                        ).toLocaleDateString()}
+                      </div>
+                      <div className="mt-2">
+                        <Button
+                          onClick={() =>
+                            router.push(
+                              `/admin/subscriptions/${subscription.id}`
+                            )
+                          }
+                          variant="outline"
+                          size="sm"
+                        >
+                          Manage Subscription
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
               </div>
             </div>
           )}
-        </Card>
-
-        <Card className="p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-lg font-semibold">Subscriptions</h2>
-            <button
-              onClick={handleCreateSubscription}
-              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
-            >
-              Add Subscription
-            </button>
-          </div>
-
-          <div className="space-y-4">
-            {subscriptions.map((subscription) => (
-              <div
-                key={subscription.id}
-                className="border rounded-lg p-4 space-y-2"
-              >
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="font-medium">{subscription.plan.name}</p>
-                    <p className="text-sm text-gray-500">
-                      {new Intl.NumberFormat('en-US', {
-                        style: 'currency',
-                        currency: subscription.plan.currency.toUpperCase(),
-                      }).format(subscription.plan.amount)}/{subscription.plan.interval}
-                    </p>
-                  </div>
-                  <Badge variant={
-                    subscription.status === 'active' ? 'success' :
-                    subscription.status === 'trialing' ? 'warning' : 'secondary'
-                  }>
-                    {subscription.status}
-                  </Badge>
-                </div>
-
-                <div className="text-sm text-gray-500">
-                  <p>Current Period: {format(new Date(subscription.currentPeriodStart), 'MMM d, yyyy')} - {format(new Date(subscription.currentPeriodEnd), 'MMM d, yyyy')}</p>
-                </div>
-
-                <button
-                  onClick={() => handleManageSubscription(subscription.id)}
-                  className="text-blue-600 hover:text-blue-700 text-sm font-medium"
-                >
-                  Manage Subscription
-                </button>
-              </div>
-            ))}
-
-            {subscriptions.length === 0 && (
-              <div className="text-center text-gray-500">
-                <p>No active subscriptions</p>
-              </div>
-            )}
-          </div>
-        </Card>
-      </div>
+        </div>
+      </Card>
     </div>
   );
 } 
