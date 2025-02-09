@@ -8,8 +8,21 @@ import {
   useStripe,
   useElements,
 } from '@stripe/react-stripe-js';
+import { useSession } from 'next-auth/react';
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
+
+interface Plan {
+  id: string;
+  name: string;
+  description: string;
+  priceId: string;
+  unitAmount: number;
+  currency: string;
+  interval: string;
+  intervalCount: number;
+  features: string[];
+}
 
 interface SubscriptionFormProps {
   clientSecret: string;
@@ -56,7 +69,7 @@ function SubscriptionForm({ clientSecret, onSuccess }: SubscriptionFormProps) {
       <button
         type="submit"
         disabled={!stripe || processing}
-        className="w-full bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600 disabled:opacity-50"
+        className="w-full px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 rounded-md"
       >
         {processing ? 'Processing...' : 'Subscribe'}
       </button>
@@ -65,282 +78,140 @@ function SubscriptionForm({ clientSecret, onSuccess }: SubscriptionFormProps) {
 }
 
 export default function SubscriptionManager() {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [subscription, setSubscription] = useState<any>(null);
+  const { data: session } = useSession();
+  const [plans, setPlans] = useState<Plan[]>([]);
+  const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const createSubscription = async (formData: {
-    email: string;
-    name: string;
-    hourlyRate: number;
-    hoursPerInterval: number;
-  }) => {
+  useEffect(() => {
+    const fetchPlans = async () => {
+      try {
+        const response = await fetch('/api/subscriptions/plans');
+        if (!response.ok) {
+          throw new Error('Failed to fetch plans');
+        }
+        const data = await response.json();
+        setPlans(data);
+      } catch (err) {
+        setError('Failed to load subscription plans');
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPlans();
+  }, []);
+
+  const handlePlanSelect = async (plan: Plan) => {
     try {
       setLoading(true);
       setError(null);
 
-      const response = await fetch('/api/subscriptions', {
+      const response = await fetch('/api/subscriptions/create', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          priceId: plan.priceId,
+          email: session?.user?.email,
+          name: session?.user?.name,
+        }),
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to create subscription');
+        throw new Error('Failed to create subscription');
       }
 
+      const data = await response.json();
       setClientSecret(data.clientSecret);
-      setSubscription(data);
+      setSelectedPlan(plan);
     } catch (err) {
-      setError((err as Error).message);
+      setError('Failed to set up subscription');
+      console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
-  const handlePaymentSuccess = async (paymentIntent: any) => {
+  const handlePaymentSuccess = (paymentIntent: any) => {
     // Handle successful payment
     console.log('Payment successful:', paymentIntent);
+    // You might want to redirect to a success page or update UI
   };
 
-  const updateHours = async (hours: number) => {
-    if (!subscription?.subscriptionId) return;
+  if (loading) {
+    return (
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+        <p className="mt-2 text-gray-500">Loading...</p>
+      </div>
+    );
+  }
 
-    try {
-      setLoading(true);
-      setError(null);
-
-      const response = await fetch('/api/subscriptions', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          subscriptionId: subscription.subscriptionId,
-          hoursPerInterval: hours,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to update hours');
-      }
-
-      // Update local subscription state
-      setSubscription((prev: any) => ({
-        ...prev,
-        hoursPerInterval: hours,
-      }));
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const pauseSubscription = async () => {
-    if (!subscription?.subscriptionId) return;
-
-    try {
-      setLoading(true);
-      setError(null);
-
-      const response = await fetch('/api/subscriptions', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          subscriptionId: subscription.subscriptionId,
-          action: 'pause',
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to pause subscription');
-      }
-
-      // Update local subscription state
-      setSubscription((prev: any) => ({
-        ...prev,
-        status: 'paused',
-      }));
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const resumeSubscription = async () => {
-    if (!subscription?.subscriptionId) return;
-
-    try {
-      setLoading(true);
-      setError(null);
-
-      const response = await fetch('/api/subscriptions', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          subscriptionId: subscription.subscriptionId,
-          action: 'resume',
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to resume subscription');
-      }
-
-      // Update local subscription state
-      setSubscription((prev: any) => ({
-        ...prev,
-        status: 'active',
-      }));
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const cancelSubscription = async () => {
-    if (!subscription?.subscriptionId) return;
-
-    try {
-      setLoading(true);
-      setError(null);
-
-      const response = await fetch('/api/subscriptions', {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          subscriptionId: subscription.subscriptionId,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to cancel subscription');
-      }
-
-      // Update local subscription state
-      setSubscription((prev: any) => ({
-        ...prev,
-        status: 'canceled',
-      }));
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setLoading(false);
-    }
-  };
+  if (error) {
+    return (
+      <div className="text-center text-red-500">
+        <p>{error}</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-2xl mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-6">Hourly Billing Subscription</h1>
-
-      {error && (
-        <div className="bg-red-50 text-red-500 p-4 rounded mb-4">
-          {error}
-        </div>
-      )}
-
-      {!subscription && (
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Create New Subscription</h2>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              const formData = new FormData(e.currentTarget);
-              createSubscription({
-                email: formData.get('email') as string,
-                name: formData.get('name') as string,
-                hourlyRate: Number(formData.get('hourlyRate')),
-                hoursPerInterval: Number(formData.get('hoursPerInterval')),
-              });
-            }}
-            className="space-y-4"
-          >
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Email
-              </label>
-              <input
-                type="email"
-                name="email"
-                required
-                aria-label="Email address"
-                className="mt-1 block w-full rounded border-gray-300 shadow-sm"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Name
-              </label>
-              <input
-                type="text"
-                name="name"
-                required
-                aria-label="Full name"
-                className="mt-1 block w-full rounded border-gray-300 shadow-sm"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Hourly Rate (USD)
-              </label>
-              <input
-                type="number"
-                name="hourlyRate"
-                min="1"
-                required
-                aria-label="Hourly rate in USD"
-                className="mt-1 block w-full rounded border-gray-300 shadow-sm"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Hours per Interval
-              </label>
-              <input
-                type="number"
-                name="hoursPerInterval"
-                min="1"
-                required
-                aria-label="Number of hours per billing interval"
-                className="mt-1 block w-full rounded border-gray-300 shadow-sm"
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600 disabled:opacity-50"
+    <div className="space-y-8">
+      {!clientSecret ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {plans.map((plan) => (
+            <div
+              key={plan.id}
+              className="border rounded-lg p-6 space-y-4 hover:shadow-lg transition-shadow"
             >
-              {loading ? 'Creating...' : 'Create Subscription'}
-            </button>
-          </form>
+              <h3 className="text-lg font-semibold">{plan.name}</h3>
+              <p className="text-gray-600">{plan.description}</p>
+              <div className="text-2xl font-bold">
+                {plan.currency && new Intl.NumberFormat('en-US', {
+                  style: 'currency',
+                  currency: plan.currency.toUpperCase(),
+                }).format(plan.unitAmount)}
+                <span className="text-sm font-normal text-gray-500">
+                  /{plan.interval}
+                </span>
+              </div>
+              <ul className="space-y-2">
+                {plan.features.map((feature, index) => (
+                  <li key={index} className="flex items-center text-sm text-gray-600">
+                    <svg
+                      className="h-5 w-5 text-green-500 mr-2"
+                      fill="none"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path d="M5 13l4 4L19 7"></path>
+                    </svg>
+                    {feature}
+                  </li>
+                ))}
+              </ul>
+              <button
+                onClick={() => handlePlanSelect(plan)}
+                className="w-full px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md"
+              >
+                Select Plan
+              </button>
+            </div>
+          ))}
         </div>
-      )}
-
-      {clientSecret && (
-        <div className="mt-6">
-          <h2 className="text-xl font-semibold mb-4">Payment Details</h2>
+      ) : (
+        <div className="max-w-md mx-auto">
+          <h3 className="text-lg font-semibold mb-4">
+            Complete your subscription to {selectedPlan?.name}
+          </h3>
           <Elements
             stripe={stripePromise}
             options={{
@@ -355,57 +226,6 @@ export default function SubscriptionManager() {
               onSuccess={handlePaymentSuccess}
             />
           </Elements>
-        </div>
-      )}
-
-      {subscription && subscription.status !== 'canceled' && (
-        <div className="mt-6 space-y-4">
-          <h2 className="text-xl font-semibold">Manage Subscription</h2>
-          
-          <div className="flex space-x-4">
-            <button
-              onClick={() => updateHours(subscription.hoursPerInterval + 1)}
-              disabled={loading}
-              className="bg-green-500 text-white py-2 px-4 rounded hover:bg-green-600 disabled:opacity-50"
-            >
-              Increase Hours
-            </button>
-            <button
-              onClick={() => updateHours(Math.max(1, subscription.hoursPerInterval - 1))}
-              disabled={loading || subscription.hoursPerInterval <= 1}
-              className="bg-yellow-500 text-white py-2 px-4 rounded hover:bg-yellow-600 disabled:opacity-50"
-            >
-              Decrease Hours
-            </button>
-          </div>
-
-          <div className="flex space-x-4">
-            {subscription.status === 'active' ? (
-              <button
-                onClick={pauseSubscription}
-                disabled={loading}
-                className="bg-orange-500 text-white py-2 px-4 rounded hover:bg-orange-600 disabled:opacity-50"
-              >
-                Pause Subscription
-              </button>
-            ) : (
-              <button
-                onClick={resumeSubscription}
-                disabled={loading}
-                className="bg-green-500 text-white py-2 px-4 rounded hover:bg-green-600 disabled:opacity-50"
-              >
-                Resume Subscription
-              </button>
-            )}
-
-            <button
-              onClick={cancelSubscription}
-              disabled={loading}
-              className="bg-red-500 text-white py-2 px-4 rounded hover:bg-red-600 disabled:opacity-50"
-            >
-              Cancel Subscription
-            </button>
-          </div>
         </div>
       )}
     </div>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
+import { Card } from '@/components/ui/card';
 
 interface DashboardStats {
   activeClients: number;
@@ -21,140 +22,152 @@ export default function AdminDashboard() {
   const { data: session, status } = useSession();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchDashboardData = async () => {
+    const fetchStats = async () => {
       try {
-        setIsLoading(true);
-        setError(null);
-
-        // Fetch dashboard stats
-        const statsResponse = await fetch('/api/dashboard/stats');
-        const activitiesResponse = await fetch('/api/dashboard/activities');
-
-        if (!statsResponse.ok || !activitiesResponse.ok) {
-          throw new Error('Failed to fetch dashboard data');
+        const response = await fetch('/api/dashboard/stats');
+        if (!response.ok) {
+          throw new Error('Failed to fetch dashboard stats');
         }
-
-        const statsData = await statsResponse.json();
-        const activitiesData = await activitiesResponse.json();
-
-        setStats(statsData);
-        setActivities(activitiesData);
+        const data = await response.json();
+        setStats(data);
       } catch (err) {
-        console.error('Error fetching dashboard data:', err);
-        setError('Failed to load dashboard data. Please try again later.');
+        setError(err instanceof Error ? err.message : 'Failed to load dashboard stats');
+        console.error(err);
       } finally {
-        setIsLoading(false);
+        setLoading(false);
       }
     };
 
     if (status === 'authenticated') {
-      fetchDashboardData();
+      fetchStats();
     }
   }, [status]);
 
-  if (status === 'loading' || isLoading) {
+  useEffect(() => {
+    const fetchActivities = async () => {
+      try {
+        const response = await fetch('/api/dashboard/activities');
+        if (!response.ok) {
+          throw new Error('Failed to fetch activities');
+        }
+        const data = await response.json();
+        setActivities(data);
+      } catch (err) {
+        console.error('Error fetching activities:', err);
+        setError('Failed to load activities. Please try again later.');
+      }
+    };
+
+    if (status === 'authenticated') {
+      fetchActivities();
+    }
+  }, [status]);
+
+  if (status === 'loading' || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+      <div className="container mx-auto py-10">
+        <Card className="p-6">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+            <p className="mt-2 text-gray-500">Loading dashboard...</p>
+          </div>
+        </Card>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="bg-red-50 text-red-500 p-4 rounded-lg">
-          <p>{error}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="mt-4 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
-          >
-            Retry
-          </button>
-        </div>
+      <div className="container mx-auto py-10">
+        <Card className="p-6">
+          <div className="text-center text-red-500">
+            <p>{error}</p>
+          </div>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div>
-      <div className="md:flex md:items-center md:justify-between">
-        <div className="min-w-0 flex-1">
-          <h2 className="text-2xl font-bold leading-7 text-gray-900 sm:truncate sm:text-3xl sm:tracking-tight">
-            Welcome back{session?.user?.name ? `, ${session.user.name}` : ''}
-          </h2>
-        </div>
+    <div className="container mx-auto py-10">
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold">
+          Welcome{session?.user?.name ? `, ${session.user.name}` : ''}
+        </h1>
+        <p className="text-gray-500">Here's an overview of your business</p>
       </div>
 
-      <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {/* Active Clients Card */}
-        <div className="bg-white overflow-hidden shadow rounded-lg">
-          <div className="p-5">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <svg className="h-6 w-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Active Clients</dt>
-                  <dd className="flex items-baseline">
-                    <div className="text-2xl font-semibold text-gray-900">{stats?.activeClients || 0}</div>
-                  </dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card className="p-6">
+          <h3 className="text-lg font-medium text-gray-900">Active Clients</h3>
+          <p className="mt-2 text-3xl font-bold">{stats?.activeClients || 0}</p>
+          <p className="mt-1 text-sm text-gray-500">Total active clients</p>
+        </Card>
 
-        {/* Monthly Revenue Card */}
-        <div className="bg-white overflow-hidden shadow rounded-lg">
-          <div className="p-5">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <svg className="h-6 w-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Monthly Revenue</dt>
-                  <dd className="flex items-baseline">
-                    <div className="text-2xl font-semibold text-gray-900">
-                      ${stats?.monthlyRevenue?.toLocaleString() || '0'}
-                    </div>
-                  </dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-        </div>
+        <Card className="p-6">
+          <h3 className="text-lg font-medium text-gray-900">Monthly Revenue</h3>
+          <p className="mt-2 text-3xl font-bold">
+            {new Intl.NumberFormat('en-US', {
+              style: 'currency',
+              currency: 'USD',
+            }).format(stats?.monthlyRevenue || 0)}
+          </p>
+          <p className="mt-1 text-sm text-gray-500">Current month</p>
+        </Card>
 
-        {/* Active Projects Card */}
-        <div className="bg-white overflow-hidden shadow rounded-lg">
-          <div className="p-5">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <svg className="h-6 w-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-                </svg>
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Active Projects</dt>
-                  <dd className="flex items-baseline">
-                    <div className="text-2xl font-semibold text-gray-900">{stats?.activeProjects || 0}</div>
-                  </dd>
-                </dl>
-              </div>
+        <Card className="p-6">
+          <h3 className="text-lg font-medium text-gray-900">Active Projects</h3>
+          <p className="mt-2 text-3xl font-bold">{stats?.activeProjects || 0}</p>
+          <p className="mt-1 text-sm text-gray-500">Ongoing projects</p>
+        </Card>
+      </div>
+
+      <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card className="p-6">
+          <h3 className="text-lg font-medium mb-4">Quick Actions</h3>
+          <div className="space-y-2">
+            <button
+              onClick={() => window.location.href = '/admin/clients/new'}
+              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md"
+            >
+              Add New Client
+            </button>
+            <button
+              onClick={() => window.location.href = '/admin/subscriptions/new'}
+              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md"
+            >
+              Create Subscription
+            </button>
+            <button
+              onClick={() => window.location.href = '/admin/billing'}
+              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md"
+            >
+              Manage Billing
+            </button>
+          </div>
+        </Card>
+
+        <Card className="p-6">
+          <h3 className="text-lg font-medium mb-4">System Status</h3>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-500">Stripe Connection</span>
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                Active
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-500">Last Sync</span>
+              <span className="text-sm text-gray-900">
+                {new Date().toLocaleString()}
+              </span>
             </div>
           </div>
-        </div>
+        </Card>
       </div>
 
       {/* Recent Activity */}

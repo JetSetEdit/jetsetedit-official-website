@@ -10,6 +10,9 @@ import {
   cancelSubscription,
   getUpcomingInvoice
 } from '@/lib/stripe';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '../auth/[...nextauth]/route';
+import { stripe } from '@/lib/stripe';
 
 export async function POST(req: Request) {
   try {
@@ -118,29 +121,120 @@ export async function DELETE(req: Request) {
 
 export async function GET(req: Request) {
   try {
-    const url = new URL(req.url);
-    const customerId = url.searchParams.get('customerId');
-    const subscriptionId = url.searchParams.get('subscriptionId');
-    const newPriceId = url.searchParams.get('newPriceId');
-    const newQuantity = url.searchParams.get('newQuantity');
-
-    if (!customerId) {
-      throw new Error('Customer ID is required');
+    console.log('Starting GET request to /api/subscriptions');
+    
+    const session = await getServerSession(authOptions);
+    console.log('Session status:', session ? 'Authenticated' : 'Not authenticated');
+    console.log('Session details:', JSON.stringify(session, null, 2));
+    
+    if (!session) {
+      console.log('No session found, returning 401');
+      return new NextResponse(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401 }
+      );
     }
 
-    const upcomingInvoice = await getUpcomingInvoice(
-      customerId,
-      subscriptionId || undefined,
-      newPriceId || undefined,
-      newQuantity ? parseInt(newQuantity) : undefined
+    const url = new URL(req.url);
+    const customerId = url.searchParams.get('customerId');
+    console.log('URL parameters:', { customerId });
+    
+    // If customerId is provided, get upcoming invoice
+    if (customerId) {
+      console.log('Fetching upcoming invoice for customer:', customerId);
+      const subscriptionId = url.searchParams.get('subscriptionId');
+      const newPriceId = url.searchParams.get('newPriceId');
+      const newQuantity = url.searchParams.get('newQuantity');
+
+      const upcomingInvoice = await getUpcomingInvoice(
+        customerId,
+        subscriptionId || undefined,
+        newPriceId || undefined,
+        newQuantity ? parseInt(newQuantity) : undefined
+      );
+
+      console.log('Upcoming invoice fetched successfully');
+      return NextResponse.json(upcomingInvoice);
+    }
+    
+    console.log('Fetching all subscriptions from Stripe...');
+    console.log('Using Stripe key ending in:', process.env.STRIPE_SECRET_KEY?.slice(-4));
+    
+    // Test Stripe connection first
+    let testCustomer;
+    try {
+      testCustomer = await stripe.customers.list({ limit: 1 });
+      console.log('Stripe connection successful');
+    } catch (stripeError) {
+      console.error('Stripe connection test failed:', stripeError);
+      return new NextResponse(
+        JSON.stringify({ 
+          error: 'Failed to connect to Stripe',
+          details: process.env.NODE_ENV === 'development' ? stripeError.message : undefined
+        }),
+        { status: 500 }
+      );
+    }
+
+    // First, get all subscriptions with customer data
+    const subscriptions = await stripe.subscriptions.list({
+      limit: 100,
+      expand: ['data.customer'],
+    });
+
+    // Then, get the prices and products separately
+    const transformedSubscriptions = await Promise.all(subscriptions.data.map(async subscription => {
+      const customer = subscription.customer as any;
+      const item = subscription.items.data[0];
+      
+      // Fetch price with product details
+      const price = await stripe.prices.retrieve(item.price.id, {
+        expand: ['product']
+      });
+      
+      const product = price.product as any;
+
+      return {
+        id: subscription.id,
+        customerId: customer.id,
+        customerName: customer.name || 'Unnamed Customer',
+        customerEmail: customer.email,
+        status: subscription.status,
+        currentPeriodStart: new Date(subscription.current_period_start * 1000).toISOString(),
+        currentPeriodEnd: new Date(subscription.current_period_end * 1000).toISOString(),
+        plan: {
+          id: product.id,
+          name: product.name,
+          amount: price.unit_amount ? price.unit_amount / 100 : 0,
+          currency: price.currency,
+          interval: price.recurring?.interval || 'month',
+        }
+      };
+    }));
+
+    console.log('Successfully transformed subscriptions data');
+    console.log('Sending response with transformed data');
+
+    return new NextResponse(
+      JSON.stringify(transformedSubscriptions),
+      { 
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
     );
 
-    return NextResponse.json(upcomingInvoice);
-  } catch (err) {
-    console.error('Error getting upcoming invoice:', err);
-    return NextResponse.json(
-      { error: (err as Error).message },
-      { status: 400 }
+  } catch (error) {
+    console.error('Error in GET subscriptions:', error);
+    console.error('Full error details:', JSON.stringify(error, null, 2));
+    return new NextResponse(
+      JSON.stringify({ 
+        error: 'Failed to process request',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+        stack: process.env.NODE_ENV === 'development' ? (error as Error).stack : undefined
+      }),
+      { status: 500 }
     );
   }
 } 
