@@ -132,21 +132,27 @@ export default function AdminDashboard() {
           <div className="space-y-2">
             <button
               onClick={() => window.location.href = '/admin/clients/new'}
-              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md"
+              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
             >
               Add New Client
             </button>
             <button
-              onClick={() => window.location.href = '/admin/subscriptions/new'}
-              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md"
+              onClick={() => window.location.href = '/admin/subscriptions'}
+              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
             >
               Create Subscription
             </button>
             <button
-              onClick={() => window.location.href = '/admin/billing'}
-              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md"
+              onClick={() => window.location.href = '/admin/invoices'}
+              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
             >
-              Manage Billing
+              Manage Invoices
+            </button>
+            <button
+              onClick={() => window.location.href = '/admin/tax-deductions'}
+              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+            >
+              Record Tax Deduction
             </button>
           </div>
         </Card>

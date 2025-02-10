@@ -33,11 +33,14 @@ export async function GET() {
         sub => sub.status === 'active' || sub.status === 'trialing'
       );
 
+      // Use metadata status if available, otherwise determine from subscription
+      const status = customer.metadata?.status || (activeSubscription ? 'Active' : 'Inactive');
+
       return {
         id: customer.id,
         name: customer.name || 'Unnamed Client',
         email: customer.email,
-        status: activeSubscription ? 'Active' : 'Inactive',
+        status,
         subscriptionId: activeSubscription?.id,
         subscriptionStatus: activeSubscription?.status,
         currentPeriodEnd: activeSubscription 

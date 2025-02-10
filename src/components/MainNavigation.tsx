@@ -15,7 +15,9 @@ const publicNavigation = [
 const dashboardNavigation = [
   { name: 'Dashboard', href: '/admin' },
   { name: 'Clients', href: '/admin/clients' },
+  { name: 'Projects', href: '/admin/projects' },
   { name: 'Subscriptions', href: '/admin/subscriptions' },
+  { name: 'Invoices', href: '/admin/invoices' },
   { name: 'Billing', href: '/admin/billing' },
   { name: 'Tax Deductions', href: '/admin/tax-deductions' },
   { name: 'Settings', href: '/admin/settings' },
@@ -150,4 +152,4 @@ export function MainNavigation() {
       />
     </nav>
   );
-} 
+}
