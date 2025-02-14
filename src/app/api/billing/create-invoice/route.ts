@@ -1,27 +1,20 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '../../auth/[...nextauth]/route';
+import { authOptions } from '@/lib/auth';
 import { stripe } from '@/lib/stripe';
+import { createApiResponse, handleApiError } from '@/lib/api/response';
+import { verifyAdminRole } from '@/lib/middleware/adminAuth';
 
 export async function POST(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session) {
-      return new NextResponse(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401 }
-      );
-    }
+    const session = await verifyAdminRole();
+    if (session instanceof NextResponse) return session;
 
     const body = await request.json();
     const { subscriptionId, description } = body;
 
     if (!subscriptionId) {
-      return new NextResponse(
-        JSON.stringify({ error: 'Subscription ID is required' }),
-        { status: 400 }
-      );
+      return createApiResponse({ error: 'Subscription ID is required' }, 400);
     }
 
     // Get the subscription to find the customer
@@ -40,28 +33,13 @@ export async function POST(request: Request) {
     // Add all pending usage to the invoice
     await stripe.invoices.finalizeInvoice(invoice.id);
 
-    return new NextResponse(
-      JSON.stringify({
-        success: true,
-        invoiceId: invoice.id,
-        invoiceUrl: invoice.hosted_invoice_url,
-      }),
-      { 
-        status: 200,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }
-    );
+    return createApiResponse({
+      success: true,
+      invoiceId: invoice.id,
+      invoiceUrl: invoice.hosted_invoice_url,
+    });
 
   } catch (error) {
-    console.error('Error creating invoice:', error);
-    return new NextResponse(
-      JSON.stringify({ 
-        error: 'Failed to create invoice',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
-      }),
-      { status: 500 }
-    );
+    return handleApiError(error, 'Failed to create invoice');
   }
 } 

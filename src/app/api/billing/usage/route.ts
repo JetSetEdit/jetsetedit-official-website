@@ -1,27 +1,20 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '../../auth/[...nextauth]/route';
+import { authOptions } from '@/lib/auth';
 import { stripe } from '@/lib/stripe';
+import { createApiResponse, handleApiError } from '@/lib/api/response';
+import { verifyAdminRole } from '@/lib/middleware/adminAuth';
 
 export async function GET(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session) {
-      return new NextResponse(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401 }
-      );
-    }
+    const session = await verifyAdminRole();
+    if (session instanceof NextResponse) return session;
 
     const { searchParams } = new URL(request.url);
     const subscriptionId = searchParams.get('subscriptionId');
 
     if (!subscriptionId) {
-      return new NextResponse(
-        JSON.stringify({ error: 'Subscription ID is required' }),
-        { status: 400 }
-      );
+      return createApiResponse({ error: 'Subscription ID is required' }, 400);
     }
 
     console.log('Fetching usage for subscription:', subscriptionId);
@@ -57,27 +50,12 @@ export async function GET(request: Request) {
 
     console.log('Usage data:', usageData);
 
-    return new NextResponse(
-      JSON.stringify({
-        subscriptionId,
-        usageData,
-      }),
-      { 
-        status: 200,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }
-    );
+    return createApiResponse({
+      subscriptionId,
+      usageData,
+    });
 
   } catch (error) {
-    console.error('Error fetching usage:', error);
-    return new NextResponse(
-      JSON.stringify({ 
-        error: 'Failed to fetch usage',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
-      }),
-      { status: 500 }
-    );
+    return handleApiError(error, 'Failed to fetch usage');
   }
 } 

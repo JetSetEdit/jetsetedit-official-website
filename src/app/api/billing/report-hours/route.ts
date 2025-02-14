@@ -1,27 +1,20 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '../../auth/[...nextauth]/route';
+import { authOptions } from '@/lib/auth';
 import { stripe } from '@/lib/stripe';
+import { createApiResponse, handleApiError } from '@/lib/api/response';
+import { verifyAdminRole } from '@/lib/middleware/adminAuth';
 
 export async function POST(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session) {
-      return new NextResponse(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401 }
-      );
-    }
+    const session = await verifyAdminRole();
+    if (session instanceof NextResponse) return session;
 
     const body = await request.json();
     const { subscriptionItemId, hours, timestamp } = body;
 
     if (!subscriptionItemId || typeof hours !== 'number') {
-      return new NextResponse(
-        JSON.stringify({ error: 'Subscription item ID and hours are required' }),
-        { status: 400 }
-      );
+      return createApiResponse({ error: 'Subscription item ID and hours are required' }, 400);
     }
 
     console.log('Reporting usage...', { subscriptionItemId, hours, timestamp });
@@ -38,27 +31,12 @@ export async function POST(request: Request) {
 
     console.log('Usage record created:', usageRecord);
 
-    return new NextResponse(
-      JSON.stringify({
-        success: true,
-        usageRecord: usageRecord
-      }),
-      { 
-        status: 200,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }
-    );
+    return createApiResponse({
+      success: true,
+      usageRecord: usageRecord
+    });
 
   } catch (error) {
-    console.error('Error reporting usage:', error);
-    return new NextResponse(
-      JSON.stringify({ 
-        error: 'Failed to report usage',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
-      }),
-      { status: 500 }
-    );
+    return handleApiError(error, 'Failed to report usage');
   }
 } 
