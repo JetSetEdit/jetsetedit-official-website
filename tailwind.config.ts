@@ -11,6 +11,7 @@ const config: Config = {
       colors: {
         background: "var(--background)",
         foreground: "var(--foreground)",
+        border: "hsl(var(--border))",
       },
       animation: {
         'fade-up': 'fadeUp 0.8s ease-out forwards',
