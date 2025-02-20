@@ -1,0 +1,36 @@
+{
+  "name": "project-jse-v0",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "node verify-build.js && next dev --turbopack",
+    "build": "node verify-build.js && next build",
+    "start": "next start",
+    "lint": "next lint",
+    "verify": "node verify-build.js",
+    "vercel-build": "node verify-build.js && next build",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@firebasegen/default-connector": "file:dataconnect-generated/js/default-connector",
+    "chalk": "^4.1.2",
+    "firebase": "^11.3.1",
+    "next": "15.1.7",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tailwindcss-animate": "^1.0.7"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "@typescript-eslint/parser": "^6.21.0",
+    "dotenv": "^16.4.7",
+    "eslint": "^8.56.0",
+    "eslint-config-next": "15.1.7",
+    "postcss": "^8",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5"
+  }
+}
